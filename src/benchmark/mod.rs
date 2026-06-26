@@ -13,7 +13,9 @@ use crate::options::{
 };
 use crate::outlier_detection::{modified_zscores, OUTLIER_THRESHOLD};
 use crate::output::format::{format_duration, format_duration_unit};
-use crate::output::progress_bar::get_progress_bar;
+use crate::output::progress_bar::{
+    get_initial_measurement_progress_bar, get_progress_bar, reset_progress_bar,
+};
 use crate::output::warnings::{OutlierWarningOptions, Warnings};
 use crate::parameter::ParameterNameAndValue;
 use crate::util::exit_code::extract_exit_code;
@@ -230,9 +232,9 @@ impl<'a> Benchmark<'a> {
 
         // Set up progress bar (and spinner for initial measurement)
         let progress_bar = if self.options.output_style != OutputStyleOption::Disabled {
-            Some(get_progress_bar(
+            Some(get_initial_measurement_progress_bar(
                 self.options.run_bounds.min,
-                "Initial time measurement",
+                "Initial time measurement:",
                 self.options.output_style,
             ))
         } else {
@@ -287,10 +289,14 @@ impl<'a> Benchmark<'a> {
 
         // Re-configure the progress bar
         if let Some(bar) = progress_bar.as_ref() {
-            bar.set_length(count)
-        }
-        if let Some(bar) = progress_bar.as_ref() {
-            bar.inc(1)
+            let mean = format_duration(mean(&times_real), self.options.time_unit);
+            bar.set_length(count);
+            bar.inc(1);
+            reset_progress_bar(
+                bar,
+                self.options.output_style,
+                format!("Current estimate: {}", mean.to_string().green()),
+            )
         }
 
         // Gather statistics (perform the actual benchmark)
